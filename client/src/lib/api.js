@@ -16,7 +16,7 @@ export const NETWORK_EVENT = "ra:network:error";
  * NETWORK / TIMEOUT DEFAULTS
  * ----------------------------------------------------- */
 const DEFAULT_TIMEOUT_MS = 15000;
-const UPLOAD_TIMEOUT_MS = 45000;
+const UPLOAD_TIMEOUT_MS = 150000;
 const DOWNLOAD_TIMEOUT_MS = 45000;
 
 /* -------------------------------------------------------
@@ -318,9 +318,19 @@ function sanitizeSettingsPayload(payload = {}) {
   const loginKind = String(src.loginKind || "").trim();
   const loginMediaFit = String(src.loginMediaFit || "").trim();
 
+  const allowedLoginKinds = [
+    "default",
+    "image_ls",
+    "video_idb",
+    "image_url",
+    "video_url",
+  ];
+
   return {
     ...(accent ? { accent } : {}),
     ...(font ? { font } : {}),
+
+    // Legacy browser/local branding support
     ...(typeof src.logoDataUrl === "string"
       ? { logoDataUrl: src.logoDataUrl }
       : {}),
@@ -330,19 +340,35 @@ function sanitizeSettingsPayload(payload = {}) {
     ...(typeof src.loginVideoMime === "string"
       ? { loginVideoMime: src.loginVideoMime }
       : {}),
+
+    // Server/Render Disk branding support
+    ...(typeof src.logoUrl === "string" ? { logoUrl: src.logoUrl } : {}),
+    ...(typeof src.logoPath === "string" ? { logoPath: src.logoPath } : {}),
+    ...(typeof src.logoMime === "string" ? { logoMime: src.logoMime } : {}),
+    ...(typeof src.loginMediaUrl === "string"
+      ? { loginMediaUrl: src.loginMediaUrl }
+      : {}),
+    ...(typeof src.loginMediaPath === "string"
+      ? { loginMediaPath: src.loginMediaPath }
+      : {}),
+    ...(typeof src.loginMediaMime === "string"
+      ? { loginMediaMime: src.loginMediaMime }
+      : {}),
+
     ...(typeof src.loginOverlayTitle === "string"
       ? { loginOverlayTitle: src.loginOverlayTitle }
       : {}),
     ...(typeof src.loginOverlaySubtitle === "string"
       ? { loginOverlaySubtitle: src.loginOverlaySubtitle }
       : {}),
-    ...(["default", "image_ls", "video_idb"].includes(loginKind)
-      ? { loginKind }
-      : {}),
+
+    ...(allowedLoginKinds.includes(loginKind) ? { loginKind } : {}),
     ...(["cover", "contain"].includes(loginMediaFit) ? { loginMediaFit } : {}),
+
     ...(Number.isFinite(Number(src.loginOverlayOpacity))
       ? { loginOverlayOpacity: Number(src.loginOverlayOpacity) }
       : {}),
+
     ...(typeof src.loginVideoAutoplay === "boolean"
       ? { loginVideoAutoplay: src.loginVideoAutoplay }
       : {}),
@@ -997,6 +1023,66 @@ export const api = {
 
   getSettings: () => request("/admin/settings"),
   adminGetSettings: () => request("/admin/settings"),
+
+  getPublicBrandingSettings: async () => {
+    const paths = [
+      "/branding/public/settings",
+      "/public/settings",
+      "/public/admin-settings",
+      "/settings/public",
+    ];
+
+    let lastErr = null;
+
+    for (const path of paths) {
+      try {
+        return await requestPublic(path, {
+          method: "GET",
+          timeoutMs: DEFAULT_TIMEOUT_MS,
+        });
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+
+    throw lastErr || new Error("Failed to load public branding settings");
+  },
+
+  adminGetBrandingSettings: () => request("/admin/settings"),
+
+  adminSaveBrandingSettings: (payload) =>
+    request("/admin/settings", {
+      method: "PUT",
+      body: sanitizeSettingsPayload(payload),
+    }),
+
+  adminUploadBrandingLogo: (file, academyId = "") => {
+    if (!file) throw new Error("Missing logo file");
+
+    const fd = new FormData();
+    fd.append("file", file);
+
+    return requestForm("/admin/settings/logo", {
+      method: "POST",
+      formData: fd,
+      params: withAcademyQuery({}, academyId),
+      timeoutMs: UPLOAD_TIMEOUT_MS,
+    });
+  },
+
+  adminUploadLoginMedia: (file, academyId = "") => {
+    if (!file) throw new Error("Missing login media file");
+
+    const fd = new FormData();
+    fd.append("file", file);
+
+    return requestForm("/admin/settings/login-media", {
+      method: "POST",
+      formData: fd,
+      params: withAcademyQuery({}, academyId),
+      timeoutMs: UPLOAD_TIMEOUT_MS,
+    });
+  },
 
   /* =========================
    * SUPER ADMIN / ACADEMIES
