@@ -61,20 +61,25 @@ export default defineConfig({
         skipWaiting: true,
         sourcemap: false,
 
-        // ✅ Fix Workbox 2 MiB precache limit on production build
+        // Fix Workbox 2 MiB precache limit on production build
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
 
         globPatterns: ["**/*.{js,css,html,ico,png,svg,json,woff2}"],
 
-        // Offline fallback page
-        navigateFallback: "/offline.html",
+        // IMPORTANT:
+        // React Router routes like /login, /admin, /judge must load index.html.
+        // Do NOT use /offline.html as navigateFallback.
+        navigateFallback: "/index.html",
 
-        // Do not use fallback for API requests
-        navigateFallbackAllowlist: [/^(?!\/api\/).*/],
+        // Do not fallback API/uploads files to React app.
+        navigateFallbackAllowlist: [/^\/(?!api\/|uploads\/).*/],
 
         runtimeCaching: [
           {
-            urlPattern: ({ request }) => request.mode === "navigate",
+            urlPattern: ({ request, url }) =>
+              request.mode === "navigate" &&
+              !url.pathname.startsWith("/api/") &&
+              !url.pathname.startsWith("/uploads/"),
             handler: "NetworkFirst",
             options: {
               cacheName: "ra-pages-cache",
