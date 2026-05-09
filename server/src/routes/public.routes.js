@@ -300,7 +300,55 @@ async function resolveEventForParticipant(participant) {
     .catch(() => null);
 }
 
-async function loadPublicSettings() {
+async function loadPublicSettings(academyId = "") {
+  /*
+   * 1) Render Disk / file-based admin settings.
+   * Your admin settings are saved under:
+   * server/uploads/admin-settings.json
+   *
+   * In this file:
+   * __dirname = server/src/routes
+   * UPLOAD_DIR = server/uploads
+   */
+  try {
+    const adminSettingsPath = path.join(UPLOAD_DIR, "admin-settings.json");
+
+    if (fs.existsSync(adminSettingsPath)) {
+      const raw = fs.readFileSync(adminSettingsPath, "utf8");
+      const parsed = JSON.parse(raw || "{}");
+
+      if (parsed && typeof parsed === "object") {
+        const aid = cleanStr(academyId);
+
+        if (aid && parsed?.[aid] && typeof parsed[aid] === "object") {
+          return parsed[aid];
+        }
+
+        const rows = Object.values(parsed).filter(
+          (x) => x && typeof x === "object",
+        );
+
+        if (rows.length) {
+          return (
+            rows.sort((a, b) => {
+              const da = new Date(a?.updatedAt || 0).getTime();
+              const db = new Date(b?.updatedAt || 0).getTime();
+              return db - da;
+            })[0] || null
+          );
+        }
+
+        return parsed;
+      }
+    }
+  } catch {
+    // continue to DB fallback
+  }
+
+  /*
+   * 2) DB fallback. This keeps compatibility if settings are later moved
+   * to MongoDB.
+   */
   const possibleModels = [
     AppSetting,
     M("AppSetting"),
@@ -312,7 +360,16 @@ async function loadPublicSettings() {
 
   for (const Model of possibleModels) {
     try {
-      const row = await Model.findOne({})
+      const query = {};
+
+      if (academyId && isValidObjectId(academyId)) {
+        query.$or = [
+          { academyId },
+          { academyId: new mongoose.Types.ObjectId(academyId) },
+        ];
+      }
+
+      const row = await Model.findOne(query)
         .sort({ updatedAt: -1, createdAt: -1 })
         .lean();
 
@@ -325,19 +382,54 @@ async function loadPublicSettings() {
   return null;
 }
 
-function mapPublicSettings(settings = {}) {
-  const logoUrl =
-    settings?.logoDataUrl ||
+function apiOrigin(req) {
+  return `${req.protocol}://${req.get("host")}`;
+}
+
+function toPublicUploadUrl(req, value = "") {
+  const v = String(value || "").trim();
+  if (!v) return "";
+  if (/^https?:\/\//i.test(v)) return v;
+  if (v.startsWith("/uploads/")) return `${apiOrigin(req)}${v}`;
+  return v;
+}
+
+function mapPublicSettings(req, settings = {}) {
+  const logoUrl = toPublicUploadUrl(
+    req,
     settings?.logoUrl ||
-    settings?.logo ||
-    settings?.appLogo ||
-    settings?.brandLogo ||
-    settings?.siteLogo ||
-    settings?.headerLogo ||
-    settings?.navbarLogo ||
-    settings?.academyLogo ||
-    settings?.logoImage ||
-    "";
+      settings?.logoPath ||
+      settings?.logoDataUrl ||
+      settings?.logo ||
+      settings?.appLogo ||
+      settings?.brandLogo ||
+      settings?.siteLogo ||
+      settings?.headerLogo ||
+      settings?.navbarLogo ||
+      settings?.academyLogo ||
+      settings?.logoImage ||
+      "",
+  );
+
+  const loginMediaUrl = toPublicUploadUrl(
+    req,
+    settings?.loginMediaUrl ||
+      settings?.loginMediaPath ||
+      settings?.loginImage ||
+      settings?.loginVideoUrl ||
+      "",
+  );
+
+  const mediaMime =
+    settings?.loginMediaMime || settings?.loginVideoMime || "video/mp4";
+
+  const loginKind =
+    settings?.loginKind ||
+    (loginMediaUrl
+      ? String(mediaMime).toLowerCase().startsWith("video/")
+        ? "video_url"
+        : "image_url"
+      : "default");
 
   const siteName =
     settings?.siteName ||
@@ -387,12 +479,27 @@ function mapPublicSettings(settings = {}) {
     academyLogo: logoUrl,
     logoDataUrl: logoUrl,
 
+    loginKind,
+    loginMediaUrl,
+    loginMediaPath: settings?.loginMediaPath || "",
+    loginMediaMime: mediaMime,
+    loginVideoMime: mediaMime,
+    loginMediaFit: settings?.loginMediaFit || "cover",
+    loginVideoAutoplay: settings?.loginVideoAutoplay ?? true,
+    loginVideoMuted: settings?.loginVideoMuted ?? true,
+    loginVideoLoop: settings?.loginVideoLoop ?? true,
+    loginOverlayTitle: settings?.loginOverlayTitle || "",
+    loginOverlaySubtitle: settings?.loginOverlaySubtitle || "",
+    loginOverlayOpacity: Number(settings?.loginOverlayOpacity ?? 0.3),
+
     primaryColor,
     accentColor: primaryColor,
     accent: primaryColor,
     brandColor: primaryColor,
     themeColor: primaryColor,
     mainColor: primaryColor,
+
+    updatedAt: settings?.updatedAt || null,
   };
 }
 
@@ -406,10 +513,36 @@ router.get("/health", (_req, res) => res.json({ ok: true }));
  * Public app/branding settings
  * No auth required
  * ========================= */
-router.get("/settings", async (_req, res) => {
+router.get("/settings", async (req, res) => {
   try {
-    const settings = await loadPublicSettings();
-    const publicSettings = mapPublicSettings(settings || {});
+    const academyId = cleanStr(req.query?.academyId);
+    const settings = await loadPublicSettings(academyId);
+    const publicSettings = mapPublicSettings(req, settings || {});
+
+    return res.json({
+      ok: true,
+      success: true,
+      settings: publicSettings,
+      appSettings: publicSettings,
+      publicSettings,
+      branding: publicSettings,
+      brand: publicSettings,
+    });
+  } catch (err) {
+    const fallbackSettings = mapPublicSettings(req, {});
+
+    return res.status(200).json({
+      ok: true,
+      success: true,
+      warning: err?.message || "Using fallback public settings",
+      settings: fallbackSettings,
+      appSettings: fallbackSettings,
+      publicSettings: fallbackSettings,
+      branding: fallbackSettings,
+      brand: fallbackSettings,
+    });
+  }
+});
 
     return res.json({
       ok: true,
