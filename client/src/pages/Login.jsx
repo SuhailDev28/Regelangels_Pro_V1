@@ -5,6 +5,16 @@ import { setAuth, clearSelectedAcademy } from "../lib/auth.js";
 import { refreshSocketAuth } from "../lib/socket.js";
 import "./Login.css";
 
+/**
+ * Login.jsx — server branding aware
+ * -------------------------------------------------------
+ * ✅ Loads logo/login media from backend public settings first
+ * ✅ Supports Render Disk URLs: /uploads/admin-branding/...
+ * ✅ Falls back to localStorage / IndexedDB for old browser-local settings
+ * ✅ Supports image_url/video_url plus legacy image_ls/video_idb
+ * ✅ Keeps login/auth flow unchanged
+ */
+
 const LS_LOGO = "ra_admin_logo";
 const LS_LOGIN_KIND = "ra_login_media_kind";
 const LS_LOGIN_IMAGE = "ra_login_media_image";
@@ -13,6 +23,12 @@ const LS_LOGIN_VIDEO_MIME = "ra_login_media_video_mime";
 const IDB_NAME = "ra_media_db";
 const IDB_STORE = "blobs";
 const IDB_LOGIN_VIDEO_KEY = "login_media_video";
+
+const DEFAULT_LOGIN_TEXT = {
+  title: "Gymnastics All In One Platform",
+  subtitle:
+    "Commercial competition dashboard for academies, judges, participants, parents, events, live scoring, alerts, awards, and leaderboard control.",
+};
 
 const FALLBACK_LOGO =
   "data:image/svg+xml;utf8," +
@@ -60,6 +76,138 @@ function assetUrl(path) {
   return `${import.meta.env.BASE_URL}${clean}`;
 }
 
+function getApiBase() {
+  return String(import.meta.env.VITE_API_BASE || "").replace(/\/+$/, "");
+}
+
+function getApiOrigin() {
+  const base = getApiBase();
+  if (!base) return "";
+
+  try {
+    const url = new URL(base);
+    return url.origin;
+  } catch {
+    return base.replace(/\/api\/?$/, "");
+  }
+}
+
+function toAbsoluteMediaUrl(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (/^(data:|blob:|https?:\/\/)/i.test(raw)) return raw;
+
+  const origin = getApiOrigin();
+  if (!origin) return raw;
+
+  if (raw.startsWith("/")) return `${origin}${raw}`;
+  return `${origin}/${raw}`;
+}
+
+function normalizePublicSettingsPayload(data) {
+  const raw = data?.settings || data?.data?.settings || data?.data || data || {};
+  if (!raw || typeof raw !== "object") return {};
+
+  const logoUrl =
+    raw.logoUrl ||
+    raw.logoURL ||
+    raw.logoPath ||
+    raw.logo ||
+    raw.logoDataUrl ||
+    raw.logoDataURL ||
+    "";
+
+  const loginMediaUrl =
+    raw.loginMediaUrl ||
+    raw.loginMediaURL ||
+    raw.loginMediaPath ||
+    raw.loginVideoUrl ||
+    raw.loginVideoURL ||
+    raw.loginImageUrl ||
+    raw.loginImageURL ||
+    raw.loginImage ||
+    "";
+
+  let loginKind = String(raw.loginKind || raw.loginMediaKind || "").trim();
+  const mediaMime = String(raw.loginMediaMime || raw.loginVideoMime || "").trim();
+  const mediaUrl = String(loginMediaUrl || "").trim();
+
+  if (!loginKind && mediaUrl) {
+    if (/\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(mediaUrl) || mediaMime.startsWith("video/")) {
+      loginKind = "video_url";
+    } else {
+      loginKind = "image_url";
+    }
+  }
+
+  if (loginKind === "image_ls") loginKind = mediaUrl ? "image_url" : "image_ls";
+  if (loginKind === "video_idb") loginKind = mediaUrl ? "video_url" : "video_idb";
+
+  return {
+    logoUrl: toAbsoluteMediaUrl(logoUrl),
+    loginKind,
+    loginMediaUrl: toAbsoluteMediaUrl(loginMediaUrl),
+    loginMediaMime: mediaMime || "video/mp4",
+    loginOverlayTitle: String(raw.loginOverlayTitle || "").trim(),
+    loginOverlaySubtitle: String(raw.loginOverlaySubtitle || "").trim(),
+    loginVideoAutoplay:
+      typeof raw.loginVideoAutoplay === "boolean" ? raw.loginVideoAutoplay : true,
+    loginVideoMuted:
+      typeof raw.loginVideoMuted === "boolean" ? raw.loginVideoMuted : true,
+    loginVideoLoop:
+      typeof raw.loginVideoLoop === "boolean" ? raw.loginVideoLoop : true,
+  };
+}
+
+async function fetchPublicSettingsDirect() {
+  const base = getApiBase();
+  if (!base) return null;
+
+  const candidates = [
+    `${base}/branding/public/settings`,
+    `${base}/public/settings`,
+    `${base}/public/admin-settings`,
+    `${base}/settings/public`,
+  ];
+
+  for (const url of candidates) {
+    try {
+      const res = await fetch(url, {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+        headers: {
+          Accept: "application/json",
+        },
+      });
+
+      if (!res.ok) continue;
+      const data = await res.json().catch(() => null);
+      if (data && typeof data === "object") return data;
+    } catch {
+      // Try next candidate.
+    }
+  }
+
+  return null;
+}
+
+async function loadPublicBrandingSettings() {
+  if (typeof api?.getPublicBrandingSettings === "function") {
+    return await api.getPublicBrandingSettings();
+  }
+
+  if (typeof api?.getPublicSettings === "function") {
+    return await api.getPublicSettings();
+  }
+
+  if (typeof api?.publicSettings === "function") {
+    return await api.publicSettings();
+  }
+
+  return await fetchPublicSettingsDirect();
+}
+
 export default function Login({ onLoggedIn }) {
   const navigate = useNavigate();
 
@@ -79,10 +227,18 @@ export default function Login({ onLoggedIn }) {
 
   const particles = useMemo(() => makeParticles(16), []);
 
+  const [logoSrc, setLogoSrc] = useState(assetUrl("logo.png"));
   const [kind, setKind] = useState("default");
   const [img, setImg] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
   const [videoMime, setVideoMime] = useState("video/mp4");
+  const [videoOptions, setVideoOptions] = useState({
+    autoPlay: true,
+    muted: true,
+    loop: true,
+  });
+  const [rightTitle, setRightTitle] = useState(DEFAULT_LOGIN_TEXT.title);
+  const [rightSubtitle, setRightSubtitle] = useState(DEFAULT_LOGIN_TEXT.subtitle);
 
   useEffect(() => {
     let alive = true;
@@ -90,6 +246,49 @@ export default function Login({ onLoggedIn }) {
 
     async function loadMedia() {
       try {
+        /**
+         * 1) Server / Render Disk branding first.
+         * This makes logo/video global across desktop, mobile, and after cache clear.
+         */
+        const serverData = await loadPublicBrandingSettings();
+        const server = normalizePublicSettingsPayload(serverData);
+
+        if (!alive) return;
+
+        if (server.logoUrl) {
+          setLogoSrc(cacheBustUrl(server.logoUrl));
+        } else {
+          const localLogo = localStorage.getItem(LS_LOGO) || "";
+          setLogoSrc(localLogo || assetUrl("logo.png"));
+        }
+
+        if (server.loginOverlayTitle) setRightTitle(server.loginOverlayTitle);
+        if (server.loginOverlaySubtitle) setRightSubtitle(server.loginOverlaySubtitle);
+
+        if (server.loginMediaUrl && ["image_url", "video_url"].includes(server.loginKind)) {
+          setKind(server.loginKind);
+          setVideoMime(server.loginMediaMime || "video/mp4");
+          setVideoOptions({
+            autoPlay: !!server.loginVideoAutoplay,
+            muted: !!server.loginVideoMuted,
+            loop: !!server.loginVideoLoop,
+          });
+
+          if (server.loginKind === "video_url") {
+            setVideoUrl(cacheBustUrl(server.loginMediaUrl));
+            setImg("");
+          } else {
+            setImg(cacheBustUrl(server.loginMediaUrl));
+            setVideoUrl("");
+          }
+
+          return;
+        }
+
+        /**
+         * 2) Legacy browser-local fallback.
+         * This keeps your old setup working, but it is not permanent/global.
+         */
         const k = localStorage.getItem(LS_LOGIN_KIND) || "default";
         const m = localStorage.getItem(LS_LOGIN_VIDEO_MIME) || "video/mp4";
         const image = localStorage.getItem(LS_LOGIN_IMAGE) || "";
@@ -99,6 +298,7 @@ export default function Login({ onLoggedIn }) {
         setKind(k);
         setVideoMime(m);
         setImg(image);
+        setVideoOptions({ autoPlay: true, muted: true, loop: true });
 
         if (k === "video_idb") {
           const blob = await idbGetBlob(IDB_LOGIN_VIDEO_KEY);
@@ -116,7 +316,13 @@ export default function Login({ onLoggedIn }) {
           setVideoUrl("");
         }
       } catch {
-        // ignore media load failures
+        if (!alive) return;
+
+        const localLogo = localStorage.getItem(LS_LOGO) || "";
+        setLogoSrc(localLogo || assetUrl("logo.png"));
+        setKind("default");
+        setImg("");
+        setVideoUrl("");
       }
     }
 
@@ -240,23 +446,19 @@ export default function Login({ onLoggedIn }) {
     setErr("");
   }
 
-  const logoSrc =
-    (typeof localStorage !== "undefined" && localStorage.getItem(LS_LOGO)) ||
-    assetUrl("logo.png");
-
   const rightMedia = (
     <>
-      {kind === "video_idb" && videoUrl ? (
+      {(kind === "video_url" || kind === "video_idb") && videoUrl ? (
         <video
           key={`${videoUrl}-${videoMime}`}
           src={videoUrl}
           className="ra-image"
-          muted
-          autoPlay
-          loop
+          muted={videoOptions.muted}
+          autoPlay={videoOptions.autoPlay}
+          loop={videoOptions.loop}
           playsInline
         />
-      ) : kind === "image_ls" && img ? (
+      ) : (kind === "image_url" || kind === "image_ls") && img ? (
         <img
           src={img}
           alt="Login media"
@@ -283,12 +485,8 @@ export default function Login({ onLoggedIn }) {
 
       <div className="ra-right-content">
         <div className="ra-kicker">REBEL ANGELS</div>
-        <h2 className="ra-right-title">Gymnastics All In One Platform</h2>
-        <p className="ra-right-text">
-          Commercial competition dashboard for academies, judges, participants,
-          parents, events, live scoring, alerts, awards, and leaderboard
-          control.
-        </p>
+        <h2 className="ra-right-title">{rightTitle}</h2>
+        <p className="ra-right-text">{rightSubtitle}</p>
 
         <div className="ra-feature-grid">
           <div className="ra-feature-pill">Multi Academy</div>
@@ -574,7 +772,7 @@ export default function Login({ onLoggedIn }) {
   );
 }
 
-/* IndexedDB read */
+/* IndexedDB read — legacy fallback only */
 function idbOpen() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(IDB_NAME, 1);
@@ -601,6 +799,19 @@ async function idbGetBlob(key) {
     req.onsuccess = () => resolve(req.result || null);
     req.onerror = () => reject(req.error || new Error("IndexedDB read failed"));
   });
+}
+
+function cacheBustUrl(url) {
+  const raw = String(url || "");
+  if (!raw || /^(data:|blob:)/i.test(raw)) return raw;
+
+  try {
+    const u = new URL(raw, window.location.origin);
+    u.searchParams.set("v", String(Date.now()));
+    return u.toString();
+  } catch {
+    return raw;
+  }
 }
 
 /* Icons */
