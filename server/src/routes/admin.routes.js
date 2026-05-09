@@ -68,7 +68,15 @@ const TEMPLATE_PATH = path.join(UPLOAD_DIR, "certificate-template.pdf");
 const META_PATH = path.join(UPLOAD_DIR, "certificate-template.json");
 const SETTINGS_FILE = path.join(UPLOAD_DIR, "admin-settings.json");
 
+// Render Persistent Disk target:
+// /opt/render/project/src/server/uploads
+// Static serving is mounted from index.js: app.use("/uploads", express.static(UPLOADS_DIR))
+const ADMIN_BRANDING_DIR = path.join(UPLOAD_DIR, "admin-branding");
+
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+if (!fs.existsSync(ADMIN_BRANDING_DIR)) {
+  fs.mkdirSync(ADMIN_BRANDING_DIR, { recursive: true });
+}
 
 /* =========================
  * Helpers
@@ -187,6 +195,90 @@ function writeAdminSettingsFile(data) {
   fs.writeFileSync(SETTINGS_FILE, JSON.stringify(data, null, 2), "utf8");
 }
 
+function getRequestOrigin(req) {
+  const forwardedProto = String(req.get("x-forwarded-proto") || "")
+    .split(",")[0]
+    .trim();
+  const proto = forwardedProto || req.protocol || "https";
+  return `${proto}://${req.get("host")}`.replace(/\/+$/, "");
+}
+
+function publicUploadUrl(req, relativePath = "") {
+  const rel = String(relativePath || "").startsWith("/")
+    ? String(relativePath || "")
+    : `/${String(relativePath || "")}`;
+  return `${getRequestOrigin(req)}${rel}`;
+}
+
+function safeUploadName(originalName = "file") {
+  const ext = path.extname(originalName || "").toLowerCase();
+  const base = path
+    .basename(originalName || "file", ext)
+    .replace(/\s+/g, "-")
+    .replace(/[^a-zA-Z0-9._-]/g, "")
+    .slice(0, 80);
+
+  return `${Date.now()}-${crypto.randomBytes(4).toString("hex")}-${
+    base || "file"
+  }${ext}`;
+}
+
+function getAcademySettingsWithDefaults(academyId) {
+  const all = readAdminSettingsFile();
+  const academySettings = all[String(academyId)] || {};
+  return sanitizeAdminSettings({
+    ...DEFAULT_ADMIN_SETTINGS,
+    ...academySettings,
+  });
+}
+
+function saveAcademySettings(academyId, patch = {}, req = null) {
+  const all = readAdminSettingsFile();
+  const previous = all[String(academyId)] || {};
+  const next = sanitizeAdminSettings({
+    ...DEFAULT_ADMIN_SETTINGS,
+    ...previous,
+    ...patch,
+  });
+
+  all[String(academyId)] = {
+    ...next,
+    academyId: String(academyId),
+    updatedAt: new Date().toISOString(),
+    updatedBy: req ? String(req.user?._id || "") : String(previous.updatedBy || ""),
+  };
+
+  writeAdminSettingsFile(all);
+  return sanitizeAdminSettings(all[String(academyId)]);
+}
+
+const adminBrandingUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, _file, cb) => {
+      try {
+        const academyId = getScopeAcademyId(req) || "global";
+        const dir = path.join(ADMIN_BRANDING_DIR, String(academyId));
+        fs.mkdirSync(dir, { recursive: true });
+        cb(null, dir);
+      } catch (err) {
+        cb(err);
+      }
+    },
+    filename: (_req, file, cb) => {
+      cb(null, safeUploadName(file.originalname || "file"));
+    },
+  }),
+  limits: { fileSize: 80 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const mimetype = String(file?.mimetype || "");
+    if (mimetype.startsWith("image/") || mimetype.startsWith("video/")) {
+      cb(null, true);
+      return;
+    }
+    cb(new Error("Only image and video files are allowed"));
+  },
+});
+
 function sanitizeAdminSettings(input = {}) {
   const src = input && typeof input === "object" ? input : {};
 
@@ -196,9 +288,13 @@ function sanitizeAdminSettings(input = {}) {
     ? String(src.accent).trim()
     : DEFAULT_ADMIN_SETTINGS.accent;
 
-  const safeLoginKind = ["default", "image_ls", "video_idb"].includes(
-    String(src.loginKind || "").trim(),
-  )
+  const safeLoginKind = [
+    "default",
+    "image_ls",
+    "video_idb",
+    "image_url",
+    "video_url",
+  ].includes(String(src.loginKind || "").trim())
     ? String(src.loginKind).trim()
     : DEFAULT_ADMIN_SETTINGS.loginKind;
 
@@ -1575,15 +1671,7 @@ router.get(
     const academyId = requireScopedAcademy(req, res);
     if (!academyId) return;
 
-    const all = readAdminSettingsFile();
-    const academySettings = all[String(academyId)] || {};
-
-    return res.json(
-      sanitizeAdminSettings({
-        ...DEFAULT_ADMIN_SETTINGS,
-        ...academySettings,
-      }),
-    );
+    return res.json(getAcademySettingsWithDefaults(academyId));
   }),
 );
 
@@ -1593,22 +1681,93 @@ router.put(
     const academyId = requireScopedAcademy(req, res);
     if (!academyId) return;
 
-    const safe = sanitizeAdminSettings(req.body || {});
-    const all = readAdminSettingsFile();
-
-    all[String(academyId)] = {
-      ...safe,
-      academyId: String(academyId),
-      updatedAt: new Date().toISOString(),
-      updatedBy: String(req.user?._id || ""),
-    };
-
-    writeAdminSettingsFile(all);
+    const settings = saveAcademySettings(academyId, req.body || {}, req);
 
     return res.json({
       ok: true,
       message: "Settings saved successfully",
-      settings: sanitizeAdminSettings(all[String(academyId)]),
+      settings,
+    });
+  }),
+);
+
+router.post(
+  "/settings/logo",
+  adminBrandingUpload.single("file"),
+  wrap(async (req, res) => {
+    const academyId = requireScopedAcademy(req, res);
+    if (!academyId) return;
+
+    if (!req.file) {
+      return res.status(400).json({ message: "Logo file is required" });
+    }
+
+    if (!String(req.file.mimetype || "").startsWith("image/")) {
+      return res.status(400).json({ message: "Logo must be an image" });
+    }
+
+    const relativePath = `/uploads/admin-branding/${academyId}/${req.file.filename}`;
+    const logoUrl = publicUploadUrl(req, relativePath);
+
+    const settings = saveAcademySettings(
+      academyId,
+      {
+        logoDataUrl: logoUrl,
+      },
+      req,
+    );
+
+    return res.json({
+      ok: true,
+      path: relativePath,
+      url: logoUrl,
+      logoUrl,
+      settings,
+    });
+  }),
+);
+
+router.post(
+  "/settings/login-media",
+  adminBrandingUpload.single("file"),
+  wrap(async (req, res) => {
+    const academyId = requireScopedAcademy(req, res);
+    if (!academyId) return;
+
+    if (!req.file) {
+      return res.status(400).json({ message: "Media file is required" });
+    }
+
+    const mimetype = String(req.file.mimetype || "");
+    const isImage = mimetype.startsWith("image/");
+    const isVideo = mimetype.startsWith("video/");
+
+    if (!isImage && !isVideo) {
+      return res.status(400).json({ message: "Media must be image or video" });
+    }
+
+    const relativePath = `/uploads/admin-branding/${academyId}/${req.file.filename}`;
+    const loginMediaUrl = publicUploadUrl(req, relativePath);
+    const loginKind = isVideo ? "video_url" : "image_url";
+
+    const settings = saveAcademySettings(
+      academyId,
+      {
+        loginKind,
+        loginImage: loginMediaUrl,
+        loginVideoMime: mimetype || "video/mp4",
+      },
+      req,
+    );
+
+    return res.json({
+      ok: true,
+      path: relativePath,
+      url: loginMediaUrl,
+      loginKind,
+      loginMediaUrl,
+      loginMediaMime: mimetype,
+      settings,
     });
   }),
 );
