@@ -11,12 +11,12 @@ export default defineConfig({
       injectRegister: "auto",
 
       includeAssets: [
-        "favicon.ico",
         "apple-touch-icon.png",
-        "pwa-192x192.png",
-        "pwa-512x512.png",
-        "maskable-icon-512x512.png",
+        "icon-192x192.png",
+        "icon-512x512.png",
         "offline.html",
+        "logo.png",
+        "loginside.jpg",
       ],
 
       manifest: {
@@ -37,17 +37,17 @@ export default defineConfig({
 
         icons: [
           {
-            src: "/pwa-192x192.png",
+            src: "/icon-192x192.png",
             sizes: "192x192",
             type: "image/png",
           },
           {
-            src: "/pwa-512x512.png",
+            src: "/icon-512x512.png",
             sizes: "512x512",
             type: "image/png",
           },
           {
-            src: "/maskable-icon-512x512.png",
+            src: "/icon-512x512.png",
             sizes: "512x512",
             type: "image/png",
             purpose: "maskable",
@@ -61,17 +61,15 @@ export default defineConfig({
         skipWaiting: true,
         sourcemap: false,
 
-        // Fix Workbox 2 MiB precache limit on production build
+        // Fix large bundle precache issue
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
 
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,json,woff2}"],
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,json,woff2,jpg,jpeg}"],
 
-        // IMPORTANT:
-        // React Router routes like /login, /admin, /judge must load index.html.
-        // Do NOT use /offline.html as navigateFallback.
+        // IMPORTANT: React Router pages must load index.html
         navigateFallback: "/index.html",
 
-        // Do not fallback API/uploads files to React app.
+        // Do not fallback API/uploads requests to React app
         navigateFallbackAllowlist: [/^\/(?!api\/|uploads\/).*/],
 
         runtimeCaching: [
@@ -117,7 +115,6 @@ export default defineConfig({
             },
           },
 
-          // Public APIs can be cached briefly
           {
             urlPattern: ({ url }) => url.pathname.startsWith("/api/public"),
             handler: "NetworkFirst",
@@ -134,7 +131,6 @@ export default defineConfig({
             },
           },
 
-          // Private APIs should NOT be cached
           {
             urlPattern: ({ url }) =>
               url.pathname.startsWith("/api/judge") ||
