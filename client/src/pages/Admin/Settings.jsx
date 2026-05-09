@@ -10,7 +10,7 @@ import { UI } from "./ui.js";
  * ✅ WordPress-like theme control behavior
  * ✅ Live preview before saving
  * ✅ Change Password
- * ✅ Upload Logo (localStorage)
+ * ✅ Upload Logo (server / Render Disk, fallback localStorage)
  * ✅ Theme Color + Presets + Hex validation
  * ✅ Font + Live preview + Custom font-family
  * ✅ Login page media: image OR video
@@ -28,7 +28,7 @@ import { UI } from "./ui.js";
  * ✅ Safer server payload normalization
  * ✅ Better media mode switching
  * ✅ Image/video recommendations + validation
- * ✅ Preview refresh for IndexedDB video
+ * ✅ Preview refresh for server video / IndexedDB fallback
  */
 
 const LS_LOGO = "ra_admin_logo";
@@ -233,6 +233,10 @@ export default function Settings() {
   const [importBusy, setImportBusy] = useState(false);
   const [serverSyncEnabled] = useState(
     !!(
+      api?.adminUploadBrandingLogo ||
+      api?.adminUploadLoginMedia ||
+      api?.adminSaveBrandingSettings ||
+      api?.adminGetBrandingSettings ||
       api?.saveSettings ||
       api?.adminSaveSettings ||
       api?.getSettings ||
@@ -384,6 +388,11 @@ export default function Settings() {
     let cancelled = false;
 
     async function hydrateVideoPreview() {
+      if (loginKind === "video_url") {
+        clearVideoPreview();
+        return;
+      }
+
       if (loginKind !== "video_idb") {
         clearVideoPreview();
         return;
@@ -502,21 +511,47 @@ export default function Settings() {
       return;
     }
 
-    const maxMB = 2.5;
+    const maxMB = 5;
     const sizeMB = file.size / (1024 * 1024);
     if (sizeMB > maxMB) {
       setErr(`Logo too large (${sizeMB.toFixed(1)}MB). Max ${maxMB}MB.`);
       return;
     }
 
-    const dataUrl = await readAsDataUrl(file);
-    setLogoDataUrl(dataUrl);
-    setLogoMeta({
-      name: file.name || "",
-      sizeMB,
-      type: file.type || "",
-    });
-    setMsg("Logo selected. Click Save All to apply permanently.");
+    try {
+      setSyncBusy(true);
+
+      if (typeof api?.adminUploadBrandingLogo === "function") {
+        const data = await api.adminUploadBrandingLogo(file);
+        const logoUrl = data?.logoUrl || data?.url || data?.path || "";
+
+        if (!logoUrl) {
+          throw new Error("Server did not return a logo URL.");
+        }
+
+        setLogoDataUrl(logoUrl);
+        setLogoMeta({
+          name: file.name || "Uploaded logo",
+          sizeMB,
+          type: file.type || "image",
+        });
+        setMsg("Logo uploaded to server. Click Save All to publish it globally.");
+        return;
+      }
+
+      const dataUrl = await readAsDataUrl(file);
+      setLogoDataUrl(dataUrl);
+      setLogoMeta({
+        name: file.name || "",
+        sizeMB,
+        type: file.type || "",
+      });
+      setMsg("Logo selected locally. Add adminUploadBrandingLogo API to save globally.");
+    } catch (e) {
+      setErr(normalizeError(e));
+    } finally {
+      setSyncBusy(false);
+    }
   }
 
   function resetLogo() {
@@ -558,38 +593,55 @@ export default function Settings() {
       return;
     }
 
-    if (isImg) {
-      const maxMB = 2.8;
-      const sizeMB = file.size / (1024 * 1024);
-      if (sizeMB > maxMB) {
-        setErr(`Image too large (${sizeMB.toFixed(1)}MB). Max ${maxMB}MB.`);
-        return;
-      }
-
-      const dataUrl = await readAsDataUrl(file);
-
-      setLoginKind("image_ls");
-      setLoginImage(dataUrl);
-      setLoginVideoMime("video/mp4");
-      setLoginMediaMeta({
-        name: file.name || "",
-        sizeMB,
-        type: file.type || "",
-      });
-
-      clearVideoPreview();
-      setMsg("Login image selected. Click Save All to apply permanently.");
-      return;
-    }
-
-    const maxMB = 30;
+    const maxMB = isVid ? 80 : 5;
     const sizeMB = file.size / (1024 * 1024);
     if (sizeMB > maxMB) {
-      setErr(`Video too large (${sizeMB.toFixed(1)}MB). Max ${maxMB}MB.`);
+      setErr(`File too large (${sizeMB.toFixed(1)}MB). Max ${maxMB}MB.`);
       return;
     }
 
     try {
+      setSyncBusy(true);
+
+      if (typeof api?.adminUploadLoginMedia === "function") {
+        const data = await api.adminUploadLoginMedia(file);
+        const loginMediaUrl =
+          data?.loginMediaUrl || data?.mediaUrl || data?.url || data?.path || "";
+        const nextKind = data?.loginKind || (isVid ? "video_url" : "image_url");
+
+        if (!loginMediaUrl) {
+          throw new Error("Server did not return a login media URL.");
+        }
+
+        setLoginKind(nextKind);
+        setLoginImage(loginMediaUrl);
+        setLoginVideoMime(data?.loginMediaMime || file.type || "video/mp4");
+        setLoginMediaMeta({
+          name: file.name || "Uploaded media",
+          sizeMB,
+          type: file.type || "media",
+        });
+
+        clearVideoPreview();
+        setMsg("Login media uploaded to server. Click Save All to publish it globally.");
+        return;
+      }
+
+      if (isImg) {
+        const dataUrl = await readAsDataUrl(file);
+        setLoginKind("image_ls");
+        setLoginImage(dataUrl);
+        setLoginVideoMime("video/mp4");
+        setLoginMediaMeta({
+          name: file.name || "",
+          sizeMB,
+          type: file.type || "",
+        });
+        clearVideoPreview();
+        setMsg("Login image selected locally. Add adminUploadLoginMedia API to save globally.");
+        return;
+      }
+
       await idbSetBlob(IDB_LOGIN_VIDEO_KEY, file);
       setLoginKind("video_idb");
       setLoginImage("");
@@ -601,11 +653,11 @@ export default function Settings() {
       });
 
       setVideoPreviewFromBlob(file);
-      setMsg("Login video selected. Click Save All to apply permanently.");
+      setMsg("Login video selected locally. Add adminUploadLoginMedia API to save globally.");
     } catch (e) {
-      setErr(
-        normalizeError(e) || "Failed to save video. Try a smaller MP4/WebM.",
-      );
+      setErr(normalizeError(e) || "Failed to upload media. Try a smaller MP4/WebM.");
+    } finally {
+      setSyncBusy(false);
     }
   }
 
@@ -651,14 +703,39 @@ export default function Settings() {
     setMsg("All branding and login settings reset in editor.");
   }
 
-  function saveAllSettings() {
+  async function saveAllSettings() {
     setErr("");
     setMsg("");
 
     const payload = sanitizeSettingsPayload(currentSettings);
-    persistLocalSettings(payload);
-    setSavedSettings(payload);
-    setMsg("All settings saved successfully.");
+
+    try {
+      setSyncBusy(true);
+
+      let saved = payload;
+      if (typeof api?.adminSaveBrandingSettings === "function") {
+        const data = await api.adminSaveBrandingSettings(payload);
+        saved = sanitizeSettingsPayload(data?.settings || data || payload);
+      } else if (typeof api?.adminSaveSettings === "function") {
+        const data = await api.adminSaveSettings(payload);
+        saved = sanitizeSettingsPayload(data?.settings || data || payload);
+      } else if (typeof api?.saveSettings === "function") {
+        const data = await api.saveSettings(payload);
+        saved = sanitizeSettingsPayload(data?.settings || data || payload);
+      }
+
+      persistLocalSettings(saved);
+      setSavedSettings(saved);
+      setMsg(
+        typeof api?.adminSaveBrandingSettings === "function"
+          ? "All settings saved to server successfully."
+          : "All settings saved locally successfully.",
+      );
+    } catch (e) {
+      setErr(normalizeError(e));
+    } finally {
+      setSyncBusy(false);
+    }
   }
 
   function revertUnsavedChanges() {
@@ -682,9 +759,9 @@ export default function Settings() {
     setLoginVideoLoop(s.loginVideoLoop);
 
     setLogoMeta(getDataUrlMeta(s.logoDataUrl, "Saved logo"));
-    if (s.loginKind === "image_ls") {
+    if ((s.loginKind === "image_ls" || s.loginKind === "image_url")) {
       setLoginMediaMeta(getDataUrlMeta(s.loginImage, "Saved image"));
-    } else if (s.loginKind === "video_idb") {
+    } else if ((s.loginKind === "video_idb" || s.loginKind === "video_url")) {
       setLoginMediaMeta({
         name: "Stored video",
         sizeMB: 0,
@@ -712,16 +789,23 @@ export default function Settings() {
         ...sanitizeSettingsPayload(currentSettings),
       };
 
-      if (typeof api?.saveSettings === "function") {
-        await api.saveSettings(payload);
+      let saved = payload;
+
+      if (typeof api?.adminSaveBrandingSettings === "function") {
+        const data = await api.adminSaveBrandingSettings(payload);
+        saved = sanitizeSettingsPayload(data?.settings || data || payload);
+      } else if (typeof api?.saveSettings === "function") {
+        const data = await api.saveSettings(payload);
+        saved = sanitizeSettingsPayload(data?.settings || data || payload);
       } else if (typeof api?.adminSaveSettings === "function") {
-        await api.adminSaveSettings(payload);
+        const data = await api.adminSaveSettings(payload);
+        saved = sanitizeSettingsPayload(data?.settings || data || payload);
       } else {
         throw new Error("Server save API missing.");
       }
 
-      persistLocalSettings(payload);
-      setSavedSettings(payload);
+      persistLocalSettings(saved);
+      setSavedSettings(saved);
       setMsg("Settings saved locally and synced to server.");
     } catch (e) {
       setErr(normalizeError(e));
@@ -743,7 +827,9 @@ export default function Settings() {
     try {
       let data = null;
 
-      if (typeof api?.getSettings === "function")
+      if (typeof api?.adminGetBrandingSettings === "function")
+        data = await api.adminGetBrandingSettings();
+      else if (typeof api?.getSettings === "function")
         data = await api.getSettings();
       else if (typeof api?.adminGetSettings === "function")
         data = await api.adminGetSettings();
@@ -772,9 +858,9 @@ export default function Settings() {
       persistLocalSettings(s);
 
       setLogoMeta(getDataUrlMeta(s.logoDataUrl, "Server logo"));
-      if (s.loginKind === "image_ls") {
+      if ((s.loginKind === "image_ls" || s.loginKind === "image_url")) {
         setLoginMediaMeta(getDataUrlMeta(s.loginImage, "Server image"));
-      } else if (s.loginKind === "video_idb") {
+      } else if ((s.loginKind === "video_idb" || s.loginKind === "video_url")) {
         setLoginMediaMeta({
           name: "Server video",
           sizeMB: 0,
@@ -860,18 +946,18 @@ export default function Settings() {
       setLoginVideoLoop(s.loginVideoLoop);
 
       setLogoMeta(getDataUrlMeta(s.logoDataUrl, "Imported logo"));
-      if (s.loginKind === "image_ls") {
+      if ((s.loginKind === "image_ls" || s.loginKind === "image_url")) {
         setLoginMediaMeta(getDataUrlMeta(s.loginImage, "Imported image"));
-      } else if (s.loginKind !== "video_idb") {
+      } else if ((s.loginKind !== "video_idb" && s.loginKind !== "video_url")) {
         setLoginMediaMeta({ name: "", sizeMB: 0, type: "" });
       }
 
-      if (s.loginKind !== "video_idb") {
+      if ((s.loginKind !== "video_idb" && s.loginKind !== "video_url")) {
         clearVideoPreview();
       }
 
       setMsg(
-        s.loginKind === "video_idb"
+        (s.loginKind === "video_idb" || s.loginKind === "video_url")
           ? "Settings imported into editor. Re-upload the video file if needed, then click Save All."
           : "Settings imported into editor. Click Save All to commit.",
       );
@@ -1379,7 +1465,7 @@ export default function Settings() {
                 value={
                   loginKind === "default"
                     ? "Default asset"
-                    : loginKind === "image_ls"
+                    : (loginKind === "image_ls" || loginKind === "image_url")
                       ? "Custom image"
                       : "Custom video"
                 }
@@ -1422,17 +1508,17 @@ export default function Settings() {
                   onChange={(e) => setLoginKind(e.target.value)}
                 >
                   <option value="default">Default Media</option>
-                  <option value="image_ls">Image</option>
-                  <option value="video_idb">Video</option>
+                  <option value="image_url">Image</option>
+                  <option value="video_url">Video</option>
                 </select>
               </Field>
 
               <div className="raLogoRow">
                 <div className="raLogoPreview raLoginMediaPreview wow">
-                  {loginKind === "video_idb" ? (
+                  {(loginKind === "video_idb" || loginKind === "video_url") ? (
                     <video
                       key={loginVideoPreviewUrl || "no-video"}
-                      src={loginVideoPreviewUrl || ""}
+                      src={loginKind === "video_url" ? loginImage : loginVideoPreviewUrl || ""}
                       style={{
                         width: "100%",
                         height: "100%",
@@ -1445,7 +1531,7 @@ export default function Settings() {
                       playsInline
                       controls
                     />
-                  ) : loginKind === "image_ls" && loginImage ? (
+                  ) : (loginKind === "image_ls" || loginKind === "image_url") && loginImage ? (
                     <img
                       src={loginImage}
                       alt="Login media preview"
@@ -1489,7 +1575,7 @@ export default function Settings() {
                       onChange={(e) => onPickLoginMedia(e.target.files?.[0])}
                     />
                     <div className="raHint">
-                      Image stored in localStorage. Video stored in IndexedDB.
+                      Stored on server Render Disk when branding API is enabled.
                       PNG/WebP/MP4/WebM recommended.
                     </div>
                   </DropZone>
@@ -1636,9 +1722,9 @@ export default function Settings() {
               </div>
 
               <div className="raLoginMockRight">
-                {loginKind === "video_idb" && loginVideoPreviewUrl ? (
+                {((loginKind === "video_idb" && loginVideoPreviewUrl) || (loginKind === "video_url" && loginImage)) ? (
                   <video
-                    src={loginVideoPreviewUrl}
+                    src={loginKind === "video_url" ? loginImage : loginVideoPreviewUrl}
                     muted={loginVideoMuted}
                     autoPlay={loginVideoAutoplay}
                     loop={loginVideoLoop}
@@ -1651,7 +1737,7 @@ export default function Settings() {
                       inset: 0,
                     }}
                   />
-                ) : loginKind === "image_ls" && loginImage ? (
+                ) : (loginKind === "image_ls" || loginKind === "image_url") && loginImage ? (
                   <img
                     src={loginImage}
                     alt="Login media"
@@ -1700,7 +1786,7 @@ export default function Settings() {
                     <span className="raMockBadge">
                       {loginKind === "video_idb"
                         ? "Video Login"
-                        : loginKind === "image_ls"
+                        : (loginKind === "image_ls" || loginKind === "image_url")
                           ? "Image Login"
                           : "Default Login"}
                     </span>
@@ -1776,10 +1862,10 @@ export default function Settings() {
               <SummaryItem
                 label="Login Media"
                 value={
-                  loginKind === "video_idb"
-                    ? "IndexedDB Video"
-                    : loginKind === "image_ls"
-                      ? "localStorage Image"
+                  (loginKind === "video_idb" || loginKind === "video_url")
+                    ? (loginKind === "video_url" ? "Server Video" : "IndexedDB Video")
+                    : (loginKind === "image_ls" || loginKind === "image_url")
+                      ? (loginKind === "image_url" ? "Server Image" : "localStorage Image")
                       : "Default Asset"
                 }
               />
@@ -2068,22 +2154,36 @@ function removeLs(key) {
   }
 }
 
+function firstString(...values) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return "";
+}
+
 function sanitizeSettingsPayload(input) {
   const s = input && typeof input === "object" ? input : {};
+  const logo = firstString(s.logoDataUrl, s.logoUrl, s.logoPath);
+  const loginMedia = firstString(
+    s.loginImage,
+    s.loginMediaUrl,
+    s.mediaUrl,
+    s.loginMediaPath,
+  );
+
   return {
     accent: isHex(s.accent) ? s.accent : DEFAULT_SETTINGS.accent,
     font: String(s.font || DEFAULT_SETTINGS.font),
-    logoDataUrl: typeof s.logoDataUrl === "string" ? s.logoDataUrl : "",
-    loginKind: ["default", "image_ls", "video_idb"].includes(
+    logoDataUrl: logo,
+    loginKind: ["default", "image_ls", "video_idb", "image_url", "video_url"].includes(
       String(s.loginKind || ""),
     )
       ? String(s.loginKind)
       : DEFAULT_SETTINGS.loginKind,
-    loginImage: typeof s.loginImage === "string" ? s.loginImage : "",
+    loginImage: loginMedia,
     loginVideoMime:
-      typeof s.loginVideoMime === "string" && s.loginVideoMime
-        ? s.loginVideoMime
-        : DEFAULT_SETTINGS.loginVideoMime,
+      firstString(s.loginVideoMime, s.loginMediaMime) ||
+      DEFAULT_SETTINGS.loginVideoMime,
     loginOverlayTitle:
       typeof s.loginOverlayTitle === "string"
         ? s.loginOverlayTitle
@@ -2124,9 +2224,14 @@ function areSettingsEqual(a, b) {
 }
 
 function getDataUrlMeta(dataUrl, fallbackName = "Stored file") {
-  if (!dataUrl || typeof dataUrl !== "string" || !dataUrl.startsWith("data:")) {
+  if (!dataUrl || typeof dataUrl !== "string") {
     return { name: "", sizeMB: 0, type: "" };
   }
+
+  if (!dataUrl.startsWith("data:")) {
+    return { name: fallbackName, sizeMB: 0, type: getFileTypeFromUrl(dataUrl) };
+  }
+
   try {
     const header = dataUrl.slice(0, dataUrl.indexOf(","));
     const mimeMatch = header.match(/^data:([^;]+);/i);
@@ -2141,6 +2246,13 @@ function getDataUrlMeta(dataUrl, fallbackName = "Stored file") {
   } catch {
     return { name: fallbackName, sizeMB: 0, type: "" };
   }
+}
+
+function getFileTypeFromUrl(url) {
+  const clean = String(url || "").split("?")[0].toLowerCase();
+  if (/\.(png|jpg|jpeg|webp|gif|svg)$/.test(clean)) return "image";
+  if (/\.(mp4|webm|mov|m4v)$/.test(clean)) return "video";
+  return "server file";
 }
 
 function estimateBase64Bytes(base64) {
