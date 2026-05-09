@@ -544,31 +544,6 @@ router.get("/settings", async (req, res) => {
   }
 });
 
-    return res.json({
-      ok: true,
-      success: true,
-      settings: publicSettings,
-      appSettings: publicSettings,
-      publicSettings,
-      branding: publicSettings,
-      brand: publicSettings,
-    });
-  } catch (err) {
-    const fallbackSettings = mapPublicSettings({});
-
-    return res.status(200).json({
-      ok: true,
-      success: true,
-      warning: err?.message || "Using fallback public settings",
-      settings: fallbackSettings,
-      appSettings: fallbackSettings,
-      publicSettings: fallbackSettings,
-      branding: fallbackSettings,
-      brand: fallbackSettings,
-    });
-  }
-});
-
 /* =========================
  * POST /api/public/academy-register
  * ========================= */
