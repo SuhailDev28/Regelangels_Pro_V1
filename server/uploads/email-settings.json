@@ -1,0 +1,16 @@
+{
+  "69d015bea77aa06f67e702fd": {
+    "provider": "smtp",
+    "host": "smtp.gmail.com",
+    "port": 587,
+    "secure": false,
+    "username": "suhailiqbal28@gmail.com",
+    "password": "wanqabggwkkggprf",
+    "fromName": "Rebel Angels Gymnastics",
+    "fromEmail": "suhailiqbal28@gmail.com",
+    "replyTo": "",
+    "isEnabled": true,
+    "updatedAt": "2026-04-20T13:14:40.373Z",
+    "updatedBy": ""
+  }
+}

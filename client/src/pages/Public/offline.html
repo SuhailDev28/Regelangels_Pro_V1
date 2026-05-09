@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rebel Angels Offline</title>
+
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        font-family: Arial, Helvetica, sans-serif;
+        background: #fff5f6;
+        color: #111827;
+      }
+
+      .card {
+        width: min(92vw, 440px);
+        background: #ffffff;
+        border: 1px solid #fecdd3;
+        border-radius: 24px;
+        padding: 28px;
+        text-align: center;
+        box-shadow: 0 20px 60px rgba(225, 29, 46, 0.16);
+      }
+
+      .badge {
+        width: 76px;
+        height: 76px;
+        margin: 0 auto 16px;
+        border-radius: 24px;
+        background: #e11d2e;
+        display: grid;
+        place-items: center;
+        color: white;
+        font-size: 34px;
+      }
+
+      h1 {
+        margin: 0 0 10px;
+        font-size: 26px;
+      }
+
+      p {
+        margin: 0 0 20px;
+        line-height: 1.6;
+        color: #4b5563;
+      }
+
+      button {
+        border: 0;
+        border-radius: 999px;
+        background: #e11d2e;
+        color: white;
+        padding: 12px 20px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      small {
+        display: block;
+        margin-top: 16px;
+        color: #9ca3af;
+      }
+    </style>
+  </head>
+
+  <body>
+    <main class="card">
+      <div class="badge">🏅</div>
+
+      <h1>You’re Offline</h1>
+
+      <p>
+        Rebel Angels could not reach the server. Please check your internet
+        connection and try again.
+      </p>
+
+      <button onclick="window.location.reload()">Retry</button>
+
+      <small>Judges, parents and admins can continue once connection is back.</small>
+    </main>
+  </body>
+</html>

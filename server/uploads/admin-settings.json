@@ -1,0 +1,20 @@
+{
+  "69b309675c1a5b99f880ec86": {
+    "accent": "#e11d2e",
+    "font": "system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
+    "logoDataUrl": "",
+    "loginKind": "default",
+    "loginImage": "",
+    "loginVideoMime": "video/mp4",
+    "loginOverlayTitle": "Welcome Back",
+    "loginOverlaySubtitle": "Sign in to continue to the admin dashboard.",
+    "loginOverlayOpacity": 0,
+    "loginMediaFit": "cover",
+    "loginVideoAutoplay": true,
+    "loginVideoMuted": true,
+    "loginVideoLoop": true,
+    "academyId": "69b309675c1a5b99f880ec86",
+    "updatedAt": "2026-03-30T17:03:39.771Z",
+    "updatedBy": ""
+  }
+}

@@ -1,0 +1,904 @@
+/* =========================================
+   Rebel Angels Theme Tokens
+========================================= */
+:root {
+  --ra-red: #e11d2e;
+  --ra-red-2: #ff2a3b;
+  --ra-ink: #0b1f2a;
+  --ra-ink-2: #102b3a;
+  --ra-text: #0f172a;
+  --ra-muted: rgba(15, 23, 42, 0.65);
+  --ra-border: rgba(255, 255, 255, 0.28);
+  --ra-glow: rgba(225, 29, 46, 0.25);
+  --ra-glow-strong: rgba(225, 29, 46, 0.35);
+  --ra-bg: #f4f6f9;
+  --ra-card-bg: rgba(255, 255, 255, 0.16);
+  --ra-control-bg: rgba(255, 255, 255, 0.6);
+  --ra-control-border: rgba(255, 255, 255, 0.42);
+  --ra-right-overlay: linear-gradient(
+    180deg,
+    rgba(11, 31, 42, 0.12) 0%,
+    rgba(11, 31, 42, 0.26) 45%,
+    rgba(11, 31, 42, 0.72) 100%
+  );
+}
+
+/* =========================================
+   Page Background
+========================================= */
+.ra-page {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 18px;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(225, 29, 46, 0.1), transparent 40%),
+    radial-gradient(circle at 80% 70%, rgba(225, 29, 46, 0.08), transparent 45%),
+    radial-gradient(circle at 60% 20%, rgba(11, 31, 42, 0.06), transparent 40%),
+    var(--ra-bg);
+  position: relative;
+  overflow: hidden;
+}
+
+.ra-bg-glow {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(60px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.ra-bg-glow-a {
+  width: 280px;
+  height: 280px;
+  left: -60px;
+  top: 40px;
+  background: rgba(225, 29, 46, 0.16);
+}
+
+.ra-bg-glow-b {
+  width: 320px;
+  height: 320px;
+  right: -70px;
+  bottom: 40px;
+  background: rgba(17, 107, 156, 0.1);
+}
+
+/* =========================================
+   Floating Particles
+========================================= */
+.ra-particles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.ra-particle {
+  position: absolute;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
+  filter: blur(0.2px);
+  animation-name: floaty;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+@keyframes floaty {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(18px, -22px) scale(1.08);
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+/* =========================================
+   Layout
+========================================= */
+.ra-shell {
+  width: min(1180px, 100%);
+  min-height: 680px;
+  display: grid;
+  grid-template-columns: minmax(420px, 480px) minmax(0, 1fr);
+  gap: 20px;
+  z-index: 1;
+  position: relative;
+}
+
+.ra-left,
+.ra-right {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+/* =========================================
+   Glass Card + Animated Border
+========================================= */
+.ra-card {
+  width: 100%;
+  max-width: 470px;
+  padding: 30px;
+  border-radius: 24px;
+  background: var(--ra-card-bg);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--ra-border);
+  box-shadow:
+    0 24px 55px rgba(0, 0, 0, 0.1),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  position: relative;
+  z-index: 1;
+}
+
+.ra-card:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 30px 70px rgba(0, 0, 0, 0.14),
+    0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+
+.ra-border-anim {
+  position: relative;
+}
+
+.ra-border-anim::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 24px;
+  padding: 1px;
+  background: linear-gradient(
+    120deg,
+    rgba(225, 29, 46, 0.55),
+    rgba(255, 42, 59, 0.25),
+    rgba(11, 31, 42, 0.25),
+    rgba(225, 29, 46, 0.55)
+  );
+  background-size: 300% 300%;
+  animation: borderShift 7s ease infinite;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+@keyframes borderShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.ra-glow-pulse {
+  animation: glowPulse 4.5s ease-in-out infinite;
+}
+
+@keyframes glowPulse {
+  0%,
+  100% {
+    box-shadow:
+      0 24px 55px rgba(0, 0, 0, 0.1),
+      0 0 0 1px rgba(255, 255, 255, 0.08);
+  }
+  50% {
+    box-shadow:
+      0 26px 65px rgba(0, 0, 0, 0.12),
+      0 0 0 1px rgba(255, 255, 255, 0.1),
+      0 0 26px rgba(225, 29, 46, 0.12);
+  }
+}
+
+/* =========================================
+   Card Content
+========================================= */
+.ra-brand-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.ra-logo-wrap {
+  width: 84px;
+  height: 84px;
+  flex-shrink: 0;
+  border-radius: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    0 16px 30px rgba(15, 23, 42, 0.08);
+}
+
+.ra-logo {
+  width: 58px;
+  height: auto;
+  display: block;
+}
+
+.ra-brand-copy {
+  min-width: 0;
+}
+
+.ra-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ra-red);
+}
+
+.ra-kicker-left {
+  margin-bottom: 8px;
+}
+
+.ra-title {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.08;
+  font-weight: 900;
+  color: var(--ra-text);
+}
+
+.ra-subtitle {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--ra-muted);
+  line-height: 1.5;
+}
+
+.ra-role-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.ra-role-chip {
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  background: rgba(255, 255, 255, 0.52);
+  color: var(--ra-text);
+  padding: 10px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    transform 0.14s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.ra-role-chip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.06);
+}
+
+.ra-role-chip.is-active {
+  background: linear-gradient(135deg, var(--ra-red), var(--ra-red-2));
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 12px 26px rgba(225, 29, 46, 0.22);
+}
+
+/* =========================================
+   Form Controls
+========================================= */
+.ra-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ra-field-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.ra-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ra-label {
+  font-size: 12px;
+  color: rgba(15, 23, 42, 0.75);
+  font-weight: 700;
+}
+
+.ra-control {
+  width: 100%;
+  min-width: 0;
+  padding: 13px 14px;
+  border-radius: 15px;
+  border: 1px solid var(--ra-control-border);
+  background: var(--ra-control-bg);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-sizing: border-box;
+  outline: none;
+  color: var(--ra-text);
+  font-size: 14px;
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.12s ease,
+    background 0.2s ease;
+}
+
+.ra-control::placeholder {
+  color: rgba(15, 23, 42, 0.45);
+}
+
+.ra-control:focus {
+  border-color: rgba(225, 29, 46, 0.65);
+  box-shadow: 0 0 0 4px var(--ra-glow);
+  background: rgba(255, 255, 255, 0.76);
+}
+
+/* =========================================
+   Password Field
+========================================= */
+.ra-password-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.ra-password-field {
+  width: 100%;
+  padding: 14px 60px 14px 14px;
+  border-radius: 16px;
+  box-sizing: border-box;
+}
+
+.ra-eye-btn {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  border: none;
+  background: linear-gradient(135deg, var(--ra-red), var(--ra-red-2));
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition:
+    all 0.2s ease,
+    transform 0.15s ease;
+  box-shadow: 0 10px 24px rgba(225, 29, 46, 0.25);
+}
+
+.ra-eye-btn:hover {
+  transform: translateY(-50%) scale(1.05);
+  box-shadow: 0 14px 30px rgba(225, 29, 46, 0.35);
+}
+
+.ra-eye-btn:active {
+  transform: translateY(-50%) scale(0.95);
+}
+
+/* =========================================
+   Meta Row
+========================================= */
+.ra-row-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ra-demo-inline {
+  font-size: 12px;
+  color: rgba(15, 23, 42, 0.65);
+}
+
+.ra-demo-inline b {
+  color: var(--ra-text);
+  font-weight: 900;
+}
+
+/* =========================================
+   Forgot Password
+========================================= */
+.ra-forgot-btn {
+  background: none;
+  border: none;
+  color: var(--ra-red);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.2s ease, transform 0.1s ease;
+}
+
+.ra-forgot-btn:hover {
+  color: var(--ra-red-2);
+  text-decoration: underline;
+}
+
+.ra-forgot-btn:active {
+  transform: scale(0.97);
+}
+
+/* =========================================
+   Error
+========================================= */
+.ra-error {
+  margin-top: 2px;
+  padding: 11px 12px;
+  border-radius: 14px;
+  background: rgba(255, 245, 245, 0.7);
+  border: 1px solid rgba(255, 215, 215, 0.9);
+  color: #b42318;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* =========================================
+   Submit Button
+========================================= */
+.ra-submit {
+  width: 100%;
+  margin-top: 4px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: none;
+  background: linear-gradient(90deg, var(--ra-red), var(--ra-red-2));
+  color: #fff;
+  font-weight: 900;
+  font-size: 15px;
+  cursor: pointer;
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.2s ease,
+    filter 0.2s ease;
+  box-shadow: 0 12px 26px rgba(225, 29, 46, 0.22);
+}
+
+.ra-submit:hover {
+  filter: brightness(1.04);
+  box-shadow: 0 14px 30px rgba(225, 29, 46, 0.28);
+  transform: translateY(-1px);
+}
+
+.ra-submit:active {
+  transform: scale(0.985);
+}
+
+.ra-submit:disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+.ra-submit-arrow {
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* Spinner */
+.ra-spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.38);
+  border-top-color: #fff;
+  animation: raSpin 0.75s linear infinite;
+}
+
+@keyframes raSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* =========================================
+   Register Academy Button
+========================================= */
+.ra-register-btn {
+  margin-top: 12px;
+  width: 100%;
+  min-height: 52px;
+  border-radius: 16px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  font-weight: 900;
+  font-size: 15px;
+  color: #0f172a;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease,
+    color 0.18s ease;
+}
+
+.ra-register-btn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(225, 29, 46, 0.28);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
+}
+
+.ra-register-note {
+  margin-top: 10px;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.55;
+  color: rgba(71, 85, 105, 0.95);
+  padding: 0 8px;
+}
+
+/* =========================================
+   Demo Credentials Card
+========================================= */
+.ra-demo-card {
+  margin-top: 10px;
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.46);
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.ra-demo-title {
+  font-size: 12px;
+  font-weight: 900;
+  color: var(--ra-text);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.ra-demo-list {
+  display: grid;
+  gap: 10px;
+}
+
+.ra-demo-list > div {
+  display: grid;
+  gap: 4px;
+}
+
+.ra-demo-list span {
+  font-size: 11px;
+  color: var(--ra-muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.ra-demo-list b {
+  font-size: 13px;
+  color: var(--ra-text);
+  font-weight: 900;
+  word-break: break-word;
+}
+
+/* =========================================
+   Right Media Panel
+========================================= */
+.ra-image-frame {
+  width: 100%;
+  min-height: 640px;
+  height: 100%;
+  border-radius: 28px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1);
+  position: relative;
+  isolation: isolate;
+}
+
+.ra-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ra-right-overlay {
+  position: absolute;
+  inset: 0;
+  background: var(--ra-right-overlay);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.ra-right-badge {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  z-index: 2;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ra-right-content {
+  position: absolute;
+  left: 26px;
+  right: 26px;
+  bottom: 26px;
+  z-index: 2;
+  color: #fff;
+}
+
+.ra-right-title {
+  margin: 10px 0 10px;
+  font-size: clamp(28px, 3vw, 42px);
+  line-height: 1.04;
+  font-weight: 900;
+}
+
+.ra-right-text {
+  max-width: 520px;
+  margin: 0 0 16px;
+  font-size: 15px;
+  line-height: 1.65;
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.ra-feature-grid {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ra-feature-pill {
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  font-size: 12px;
+  font-weight: 800;
+  color: #fff;
+}
+
+/* =========================================
+   Responsive
+========================================= */
+@media (min-width: 720px) {
+  .ra-field-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 1100px) {
+  .ra-shell {
+    width: min(1000px, 100%);
+    grid-template-columns: minmax(390px, 460px) minmax(0, 1fr);
+  }
+
+  .ra-image-frame {
+    min-height: 600px;
+  }
+}
+
+@media (max-width: 900px) {
+  .ra-shell {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  .ra-right {
+    display: none;
+  }
+
+  .ra-card {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .ra-page {
+    padding: 12px;
+  }
+
+  .ra-card {
+    padding: 22px 18px;
+    border-radius: 20px;
+  }
+
+  .ra-brand-row {
+    flex-direction: column;
+    text-align: center;
+    gap: 12px;
+  }
+
+  .ra-brand-copy {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .ra-title {
+    font-size: 22px;
+    text-align: center;
+  }
+
+  .ra-subtitle {
+    text-align: center;
+  }
+
+  .ra-role-chips {
+    justify-content: center;
+  }
+
+  .ra-row-between {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .ra-submit,
+  .ra-register-btn {
+    min-height: 50px;
+  }
+}
+
+/* =========================================
+   Dark Mode (auto)
+========================================= */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ra-bg: #070b10;
+    --ra-text: #e5e7eb;
+    --ra-muted: rgba(229, 231, 235, 0.65);
+    --ra-border: rgba(255, 255, 255, 0.1);
+    --ra-card-bg: rgba(15, 23, 42, 0.46);
+    --ra-control-bg: rgba(2, 6, 23, 0.35);
+    --ra-control-border: rgba(255, 255, 255, 0.12);
+    --ra-right-overlay: linear-gradient(
+      180deg,
+      rgba(2, 6, 23, 0.12) 0%,
+      rgba(2, 6, 23, 0.32) 45%,
+      rgba(2, 6, 23, 0.82) 100%
+    );
+  }
+
+  .ra-page {
+    background:
+      radial-gradient(circle at 20% 30%, rgba(225, 29, 46, 0.18), transparent 45%),
+      radial-gradient(circle at 80% 70%, rgba(225, 29, 46, 0.12), transparent 50%),
+      radial-gradient(circle at 60% 20%, rgba(255, 255, 255, 0.05), transparent 40%),
+      var(--ra-bg);
+  }
+
+  .ra-logo-wrap {
+    background: rgba(2, 6, 23, 0.52);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.05),
+      0 16px 30px rgba(0, 0, 0, 0.24);
+  }
+
+  .ra-role-chip {
+    background: rgba(2, 6, 23, 0.38);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--ra-text);
+  }
+
+  .ra-control {
+    background: var(--ra-control-bg);
+    border: 1px solid var(--ra-control-border);
+    color: var(--ra-text);
+  }
+
+  .ra-control::placeholder {
+    color: rgba(229, 231, 235, 0.42);
+  }
+
+  .ra-control:focus {
+    background: rgba(2, 6, 23, 0.48);
+    box-shadow: 0 0 0 4px rgba(225, 29, 46, 0.28);
+  }
+
+  .ra-demo-inline,
+  .ra-label {
+    color: rgba(229, 231, 235, 0.72);
+  }
+
+  .ra-demo-card {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  }
+
+  .ra-demo-list b,
+  .ra-demo-title {
+    color: var(--ra-text);
+  }
+
+  .ra-error {
+    background: rgba(90, 10, 15, 0.35);
+    border: 1px solid rgba(255, 90, 90, 0.3);
+    color: #ffd0d0;
+  }
+
+  .ra-right-badge,
+  .ra-feature-pill {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.14);
+  }
+
+  .ra-register-btn {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--ra-text);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+  }
+
+  .ra-register-btn:hover {
+    border-color: rgba(225, 29, 46, 0.35);
+    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.22);
+  }
+
+  .ra-register-note {
+    color: rgba(229, 231, 235, 0.72);
+  }
+
+  /* =========================================
+   Parent Role Enhancement
+========================================= */
+
+/* Highlight parent chip slightly different tone */
+.ra-role-chip.is-active[data-role="PARENT"] {
+  background: linear-gradient(135deg, #0ea5e9, #22c55e);
+  box-shadow: 0 12px 26px rgba(34, 197, 94, 0.25);
+}
+
+/* Optional subtle variation on hover */
+.ra-role-chip[data-role="PARENT"]:hover {
+  box-shadow: 0 12px 24px rgba(14, 165, 233, 0.18);
+}
+}
