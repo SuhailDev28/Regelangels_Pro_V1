@@ -14,29 +14,59 @@
         background: #fff5f5;
         color: #0f172a;
       }
+
       .card {
-        max-width: 420px;
+        width: min(420px, calc(100% - 32px));
         padding: 28px;
         border-radius: 22px;
-        background: white;
-        box-shadow: 0 20px 60px rgba(15, 23, 42, 0.12);
+        background: #ffffff;
+        box-shadow: 0 20px 60px rgba(15, 23, 42, 0.14);
         text-align: center;
       }
+
+      .logo {
+        width: 58px;
+        height: 58px;
+        border-radius: 18px;
+        display: grid;
+        place-items: center;
+        margin: 0 auto 16px;
+        background: #e11d2e;
+        color: white;
+        font-size: 26px;
+        font-weight: 900;
+      }
+
       h1 {
         margin: 0 0 10px;
+        font-size: 26px;
         color: #e11d2e;
       }
+
       p {
         margin: 0;
         color: #64748b;
         line-height: 1.5;
       }
+
+      button {
+        margin-top: 20px;
+        border: 0;
+        border-radius: 14px;
+        padding: 12px 18px;
+        background: #e11d2e;
+        color: white;
+        font-weight: 800;
+        cursor: pointer;
+      }
     </style>
   </head>
   <body>
     <div class="card">
+      <div class="logo">RA</div>
       <h1>You are offline</h1>
-      <p>Please check your internet connection and reopen Rebel Angels.</p>
+      <p>Please check your internet connection and reload Rebel Angels.</p>
+      <button onclick="window.location.reload()">Reload</button>
     </div>
   </body>
 </html>
