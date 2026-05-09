@@ -61,6 +61,9 @@ export default defineConfig({
         skipWaiting: true,
         sourcemap: false,
 
+        // ✅ Fix Workbox 2 MiB precache limit on production build
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+
         globPatterns: ["**/*.{js,css,html,ico,png,svg,json,woff2}"],
 
         // Offline fallback page
