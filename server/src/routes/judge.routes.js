@@ -493,9 +493,9 @@ async function handleScore(req, res, eventIdOverride) {
   }
 
   let maxScore = assignment?.activityId?.maxScore;
-  let allowDecimal = Boolean(
-    assignment?.activityId?.allowDecimal || assignment?.activityId?.decimal,
-  );
+
+  // Rebel Angels scoring supports decimal scores globally.
+  // Example valid scores: 8.6, 8.25, 9.75, 10
 
   if (maxScore === undefined || maxScore === null) {
     const activity = await Activity.findOne({
@@ -506,7 +506,6 @@ async function handleScore(req, res, eventIdOverride) {
       .lean();
 
     maxScore = activity?.maxScore;
-    allowDecimal = Boolean(activity?.allowDecimal || activity?.decimal);
   }
 
   const max = Number(maxScore ?? 10);
@@ -527,12 +526,6 @@ async function handleScore(req, res, eventIdOverride) {
     }
 
     finalValue = Number(valueNum);
-
-    if (!allowDecimal && !Number.isInteger(finalValue)) {
-      return res.status(400).json({
-        message: "This activity allows whole numbers only",
-      });
-    }
 
     if (finalValue < 0) {
       return res.status(400).json({ message: "Minimum 0" });
