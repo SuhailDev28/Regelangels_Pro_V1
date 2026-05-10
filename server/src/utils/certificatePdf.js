@@ -7,6 +7,10 @@ import { PDFDocument as PDFLibDocument } from "pdf-lib";
  * =========================================================
  * FALLBACK CERTIFICATE (FULL DESIGN)
  * =========================================================
+ * Updated:
+ * ✅ QR code hidden
+ * ✅ Printed date hidden
+ * ✅ Serial number hidden
  */
 export async function buildCertificatePdf({
   appName,
@@ -187,75 +191,21 @@ export async function buildCertificatePdf({
   }
 
   const bottomY = pageH - 112;
-  const colGap = 70;
-  const colW = 240;
+  const signatureW = 260;
+  const signatureX = (pageW - signatureW) / 2;
 
-  const leftX = pageW / 2 - colGap / 2 - colW;
-  const rightX = pageW / 2 + colGap / 2;
-
+  // Printed date is intentionally hidden.
+  // Serial number is intentionally hidden.
+  // QR code is intentionally hidden.
   drawLineLabel(doc, {
-    x: leftX,
+    x: signatureX,
     y: bottomY,
-    w: colW,
-    label: "Date",
-    value: new Date().toLocaleDateString(),
-    color: INK,
-    muted: SOFT,
-  });
-
-  drawLineLabel(doc, {
-    x: rightX,
-    y: bottomY,
-    w: colW,
+    w: signatureW,
     label: "Signature",
     value: signatory || "Authorized",
     color: INK,
     muted: SOFT,
   });
-
-  if (showSerial && serialNo) {
-    doc
-      .font("Helvetica-Bold")
-      .fontSize(10)
-      .fillColor(RED)
-      .text(serialNo, 38, pageH - 42, {
-        width: 280,
-        align: "left",
-      });
-  }
-
-  if (showQr && qrText) {
-    try {
-      const qrDataUrl = await QRCode.toDataURL(qrText, {
-        errorCorrectionLevel: "M",
-        margin: 0,
-        width: 110,
-      });
-
-      const qrBase64 = qrDataUrl.replace(/^data:image\/png;base64,/, "");
-      const qrBuffer = Buffer.from(qrBase64, "base64");
-
-      const qrSize = 68;
-      const qrX = pageW - 38 - qrSize;
-      const qrY = pageH - 94;
-
-      doc.image(qrBuffer, qrX, qrY, {
-        width: qrSize,
-        height: qrSize,
-      });
-
-      doc
-        .font("Helvetica")
-        .fontSize(8)
-        .fillColor(SOFT)
-        .text("Verify", qrX, qrY + qrSize + 2, {
-          width: qrSize,
-          align: "center",
-        });
-    } catch {
-      // ignore
-    }
-  }
 
   doc
     .font("Helvetica")
@@ -273,6 +223,10 @@ export async function buildCertificatePdf({
  * TEMPLATE OVERLAY PDF
  * Used when you upload a designed certificate template.
  * =========================================================
+ * Updated:
+ * ✅ QR code hidden
+ * ✅ Printed date hidden
+ * ✅ Serial number hidden
  */
 export async function buildCertificateOverlayPdf({
   participantName,
@@ -384,58 +338,9 @@ export async function buildCertificateOverlayPdf({
       });
   }
 
-  if (dateText && L.date.w > 0) {
-    doc
-      .font("Helvetica")
-      .fontSize(L.date.size)
-      .fillColor(L.date.color)
-      .text(dateText || "", L.date.x, L.date.y, {
-        width: L.date.w,
-        align: L.date.align,
-      });
-  }
-
-  if (showSerial && serialNo && L.serial.w > 0) {
-    doc
-      .font("Helvetica-Bold")
-      .fontSize(L.serial.size)
-      .fillColor(L.serial.color)
-      .text(serialNo, L.serial.x, L.serial.y, {
-        width: L.serial.w,
-        align: L.serial.align,
-      });
-  }
-
-  if (showQr && qrText && L.qr.size > 0) {
-    try {
-      const qrDataUrl = await QRCode.toDataURL(qrText, {
-        errorCorrectionLevel: "M",
-        margin: 0,
-        width: Math.round(L.qr.size),
-      });
-
-      const qrBase64 = qrDataUrl.replace(/^data:image\/png;base64,/, "");
-      const qrBuffer = Buffer.from(qrBase64, "base64");
-
-      doc.image(qrBuffer, L.qr.x, L.qr.y, {
-        width: L.qr.size,
-        height: L.qr.size,
-      });
-
-      if (L.qr.label) {
-        doc
-          .font("Helvetica")
-          .fontSize(L.qr.labelSize)
-          .fillColor(L.qr.labelColor)
-          .text(L.qr.label, L.qr.x, L.qr.y + L.qr.size + 2, {
-            width: L.qr.size,
-            align: "center",
-          });
-      }
-    } catch {
-      // ignore
-    }
-  }
+  // Printed date is intentionally hidden.
+  // Serial number is intentionally hidden.
+  // QR code is intentionally hidden.
 
   return doc;
 }
@@ -575,41 +480,35 @@ function normalizeOverlayLayout(layout, pageW, pageH) {
     },
 
     /**
-     * Bottom-left date.
+     * Date, serial, and QR are intentionally disabled.
      */
     date: {
-      x: 76,
-      y: pageH - 54,
-      w: 130,
+      x: 0,
+      y: -500,
+      w: 0,
       align: "left",
-      size: 10,
-      color: "#111827",
+      size: 1,
+      color: "#FFFFFF",
       ...(layout.date || {}),
     },
 
-    /**
-     * Bottom-left serial number.
-     */
     serial: {
-      x: 76,
-      y: pageH - 32,
-      w: 250,
+      x: 0,
+      y: -500,
+      w: 0,
       align: "left",
-      size: 10,
-      color: "#DC2626",
+      size: 1,
+      color: "#FFFFFF",
       ...(layout.serial || {}),
     },
 
-    /**
-     * Bottom-right QR.
-     */
     qr: {
-      x: pageW - 120,
-      y: pageH - 98,
-      size: 66,
-      label: "Verify",
-      labelSize: 8,
-      labelColor: "#6B7280",
+      x: 0,
+      y: -500,
+      size: 0,
+      label: "",
+      labelSize: 0,
+      labelColor: "#FFFFFF",
       ...(layout.qr || {}),
     },
   };
