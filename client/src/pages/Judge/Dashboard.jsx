@@ -279,7 +279,7 @@ export default function Dashboard({ onLogout }) {
             _id: String(a),
             name: "Activity",
             maxScore: 10,
-            allowDecimal: false,
+            allowDecimal: true,
           },
         );
       }
@@ -639,9 +639,7 @@ export default function Dashboard({ onLogout }) {
         null;
 
       const maxScore = Number(activityMeta?.maxScore ?? 10);
-      const allowDecimal = Boolean(
-        activityMeta?.allowDecimal || activityMeta?.decimal || false,
-      );
+      const allowDecimal = true;
 
       for (const [participantId, draft] of entries) {
         const status = String(draft?.status || "SCORED").toUpperCase();
@@ -2523,9 +2521,7 @@ function buildScoreHelpers({
   moveFocus,
 }) {
   const maxScore = Number(activity?.maxScore ?? 10);
-  const allowDecimal = Boolean(
-    activity?.allowDecimal || activity?.decimal || false,
-  );
+  const allowDecimal = true;
 
   function validate(rawValue, statusValue) {
     const st = String(statusValue || "SCORED").toUpperCase();
