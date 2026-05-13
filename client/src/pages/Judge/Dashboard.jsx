@@ -20,7 +20,7 @@ import {
 import PWAInstallButton from "../../components/PWAInstallButton.jsx";
 
 const RED = "#e11d2e";
-const SAVE_DEBOUNCE_MS = 650;
+const SAVE_DEBOUNCE_MS = 1200;
 const LS_DRAFTS_KEY = "ra_judge_score_drafts_v2";
 const LS_JUDGE_ONBOARDING_KEY = "ra_judge_onboarding_v1";
 const LS_LOGO = "ra_admin_logo";
@@ -279,7 +279,7 @@ export default function Dashboard({ onLogout }) {
             _id: String(a),
             name: "Activity",
             maxScore: 10,
-            allowDecimal: true,
+            allowDecimal: false,
           },
         );
       }
@@ -484,6 +484,23 @@ export default function Dashboard({ onLogout }) {
     return next;
   }
 
+  function mergeScoreRowsWithoutOverwritingDirty(current = {}, incoming = {}) {
+    const merged = { ...incoming };
+
+    for (const [participantId, currentRow] of Object.entries(current || {})) {
+      if (!currentRow?.dirty && !currentRow?.saving) continue;
+
+      merged[String(participantId)] = {
+        ...(incoming[String(participantId)] || {}),
+        ...currentRow,
+        participantId: String(participantId),
+        source: currentRow.source || "draft",
+      };
+    }
+
+    return merged;
+  }
+
   function isActivityFinalized(activityIdArg) {
     return Boolean(finalizedMap[String(activityIdArg)]);
   }
@@ -578,7 +595,10 @@ export default function Dashboard({ onLogout }) {
 
         const drafts = loadDraftsFromStorage(eventIdArg, activityIdArg);
         const normalized = normalizeScoreRows(res, drafts);
-        setScoreMap(normalized);
+
+        setScoreMap((prev) =>
+          mergeScoreRowsWithoutOverwritingDirty(prev, normalized),
+        );
 
         const finalizeInfo =
           res?.finalized ||
@@ -639,7 +659,9 @@ export default function Dashboard({ onLogout }) {
         null;
 
       const maxScore = Number(activityMeta?.maxScore ?? 10);
-      const allowDecimal = true;
+      const allowDecimal = Boolean(
+        activityMeta?.allowDecimal || activityMeta?.decimal || false,
+      );
 
       for (const [participantId, draft] of entries) {
         const status = String(draft?.status || "SCORED").toUpperCase();
@@ -980,6 +1002,12 @@ export default function Dashboard({ onLogout }) {
             error: "",
             lastSavedAt: null,
           };
+
+          // Do not overwrite the input while the judge is still typing/editing.
+          // This prevents typing "10" from jumping back to the older saved "1".
+          if (current.dirty || current.saving) {
+            return prev;
+          }
 
           return {
             ...prev,
@@ -2521,7 +2549,9 @@ function buildScoreHelpers({
   moveFocus,
 }) {
   const maxScore = Number(activity?.maxScore ?? 10);
-  const allowDecimal = true;
+  const allowDecimal = Boolean(
+    activity?.allowDecimal || activity?.decimal || false,
+  );
 
   function validate(rawValue, statusValue) {
     const st = String(statusValue || "SCORED").toUpperCase();
@@ -2755,7 +2785,7 @@ function ScoreRow(props) {
           <input
             ref={(node) => setInputRef(inputKey, node)}
             className={`jdScoreInput ${row.error ? "jdInputErr" : ""}`}
-            type="number"
+            type="text"
             inputMode="decimal"
             step={allowDecimal ? "0.01" : "1"}
             min="0"
@@ -2927,7 +2957,7 @@ function ScoreCard(props) {
           <input
             ref={(node) => setInputRef(inputKey, node)}
             className={`jdScoreInput ${row.error ? "jdInputErr" : ""}`}
-            type="number"
+            type="text"
             inputMode="decimal"
             step={allowDecimal ? "0.01" : "1"}
             min="0"
