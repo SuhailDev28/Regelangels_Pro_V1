@@ -279,7 +279,7 @@ export default function Dashboard({ onLogout }) {
             _id: String(a),
             name: "Activity",
             maxScore: 10,
-            allowDecimal: false,
+            allowDecimal: true,
           },
         );
       }
@@ -659,9 +659,8 @@ export default function Dashboard({ onLogout }) {
         null;
 
       const maxScore = Number(activityMeta?.maxScore ?? 10);
-      const allowDecimal = Boolean(
-        activityMeta?.allowDecimal || activityMeta?.decimal || false,
-      );
+      // ✅ Always allow decimal scores for judging (example: 8.6, 9.1, 7.75).
+      const allowDecimal = true;
 
       for (const [participantId, draft] of entries) {
         const status = String(draft?.status || "SCORED").toUpperCase();
@@ -678,7 +677,6 @@ export default function Dashboard({ onLogout }) {
 
           const n = Number(draft.value);
           if (Number.isNaN(n)) continue;
-          if (!allowDecimal && !Number.isInteger(n)) continue;
           if (n < 0 || n > maxScore) continue;
 
           numericValue = n;
@@ -2549,9 +2547,8 @@ function buildScoreHelpers({
   moveFocus,
 }) {
   const maxScore = Number(activity?.maxScore ?? 10);
-  const allowDecimal = Boolean(
-    activity?.allowDecimal || activity?.decimal || false,
-  );
+  // ✅ Always allow decimal scores for judging (example: 8.6, 9.1, 7.75).
+  const allowDecimal = true;
 
   function validate(rawValue, statusValue) {
     const st = String(statusValue || "SCORED").toUpperCase();
@@ -2566,9 +2563,6 @@ function buildScoreHelpers({
 
     const n = Number(rawValue);
     if (Number.isNaN(n)) return { ok: false, message: "Enter a number" };
-    if (!allowDecimal && !Number.isInteger(n)) {
-      return { ok: false, message: "Whole numbers only" };
-    }
     if (n < 0) return { ok: false, message: "Minimum 0" };
     if (n > maxScore) return { ok: false, message: `Max ${maxScore}` };
 
@@ -2787,7 +2781,7 @@ function ScoreRow(props) {
             className={`jdScoreInput ${row.error ? "jdInputErr" : ""}`}
             type="text"
             inputMode="decimal"
-            step={allowDecimal ? "0.01" : "1"}
+            step="0.01"
             min="0"
             max={maxScore}
             value={row.value}
@@ -2959,7 +2953,7 @@ function ScoreCard(props) {
             className={`jdScoreInput ${row.error ? "jdInputErr" : ""}`}
             type="text"
             inputMode="decimal"
-            step={allowDecimal ? "0.01" : "1"}
+            step="0.01"
             min="0"
             max={maxScore}
             value={row.value}
