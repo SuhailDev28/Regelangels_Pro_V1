@@ -7,16 +7,17 @@ import EventEnrollment from "../models/EventEnrollment.js";
 
 /**
  * ✅ Threshold medal rule:
- * < 8       => Bronze
- * 8 - 9.99  => Silver
- * >= 10     => Gold
+ * 9.1 - 10  => Gold
+ * 8.1 - 9.0 => Silver
+ * <= 8      => Bronze
  */
 function medalByScore(score) {
   const s = Number(score ?? 0);
 
   if (!Number.isFinite(s)) return null;
-  if (s >= 10) return "G";
-  if (s >= 8) return "S";
+
+  if (s >= 9.1) return "G";
+  if (s >= 8.1) return "S";
   return "B";
 }
 
